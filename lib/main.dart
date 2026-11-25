@@ -234,7 +234,7 @@ class _StatBadge extends StatelessWidget {
 }
 
 class WormsArenaGame extends FlameGame with PanDetector {
-  static const double arenaRadius = 1400;
+  static const double arenaRadius = 4200;
   static const double normalSpeed = 195;
   static const double boostSpeed = 320;
   static const double baseSegmentSpacing = 12;
@@ -317,13 +317,23 @@ class WormsArenaGame extends FlameGame with PanDetector {
 
 class ArenaBackground extends PositionComponent {
   final double radius;
+  double _glowPhase = 0;
 
   ArenaBackground({required this.radius});
 
   @override
+  void update(double dt) {
+    super.update(dt);
+    _glowPhase += dt * 4;
+  }
+
+  @override
   void render(Canvas canvas) {
     final bgPaint = Paint()..color = const Color(0xFF101522);
-    canvas.drawCircle(Offset.zero, radius + 300, bgPaint);
+    canvas.drawRect(
+      Rect.fromLTRB(-radius - 300, -radius - 300, radius + 300, radius + 300),
+      bgPaint,
+    );
 
     final gridPaint = Paint()
       ..color = const Color(0x18FFFFFF)
@@ -337,11 +347,25 @@ class ArenaBackground extends PositionComponent {
       canvas.drawLine(Offset(-radius, y), Offset(radius, y), gridPaint);
     }
 
-    final borderPaint = Paint()
-      ..color = const Color(0xFFFF4D6D)
+    final pulse = 0.5 + 0.5 * sin(_glowPhase);
+    final zoneRect = Rect.fromLTRB(-radius, -radius, radius, radius);
+
+    final outerGlowPaint = Paint()
+      ..color = const Color(0xFFFF002B).withValues(alpha: 0.25 + pulse * 0.45)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8;
-    canvas.drawCircle(Offset.zero, radius, borderPaint);
+      ..strokeWidth = 22 + pulse * 14
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12 + pulse * 14);
+    canvas.drawRect(zoneRect, outerGlowPaint);
+
+    final borderPaint = Paint()
+      ..color = Color.lerp(
+        const Color(0xFFFF1E42),
+        const Color(0xFFFF6B6B),
+        pulse,
+      )!
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8 + pulse * 4;
+    canvas.drawRect(zoneRect, borderPaint);
   }
 }
 
@@ -417,7 +441,8 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       }
     }
 
-    if (head.position.length >= WormsArenaGame.arenaRadius - 12 ||
+    if (head.position.x.abs() >= WormsArenaGame.arenaRadius - 12 ||
+        head.position.y.abs() >= WormsArenaGame.arenaRadius - 12 ||
         _hitAnyBotBody()) {
       _die();
       return;
