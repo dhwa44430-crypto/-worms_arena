@@ -36,6 +36,11 @@ jobs:
         run: |
           if [ ! -d "android" ]; then
             flutter create --project-name worms_arena --platforms=android .
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -f android
+            git commit -m "chore: add generated android platform files"
+            git push
           fi
 
       - name: Install dependencies
