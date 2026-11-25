@@ -240,7 +240,8 @@ class _StatBadge extends StatelessWidget {
 }
 
 class WormsArenaGame extends FlameGame with PanDetector {
-  static const double arenaRadius = 4200;
+  static const double arenaRadius = 8400;
+  static const double zoneEdgeInset = 90;
   static const double normalSpeed = 195;
   static const double boostSpeed = 320;
   static const double baseSegmentSpacing = 12;
@@ -368,11 +369,12 @@ class ArenaBackground extends PositionComponent {
 
     final pulse = 0.5 + 0.5 * sin(_glowPhase);
     const liftOffset = 40.0;
+    const inset = WormsArenaGame.zoneEdgeInset;
     final zoneRect = Rect.fromLTRB(
-      -radius,
-      -radius - liftOffset,
-      radius,
-      radius - liftOffset,
+      -radius + inset,
+      -radius - liftOffset + inset,
+      radius - inset,
+      radius - liftOffset - inset,
     );
 
     final outerGlowPaint = Paint()
@@ -466,8 +468,9 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       }
     }
 
-    if (head.position.x.abs() >= WormsArenaGame.arenaRadius - 12 ||
-        head.position.y.abs() >= WormsArenaGame.arenaRadius - 12 ||
+    final limit = WormsArenaGame.arenaRadius - WormsArenaGame.zoneEdgeInset - 12;
+    if (head.position.x.abs() >= limit ||
+        head.position.y.abs() >= limit ||
         _hitAnyBotBody()) {
       _die();
       return;
