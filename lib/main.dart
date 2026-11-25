@@ -1,10 +1,10 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:worms_arena/food.dart';
 
 void main() {
   runApp(
@@ -21,19 +21,30 @@ void main() {
 
 class WormsArenaGame extends FlameGame with PanDetector {
   static const double arenaRadius = 1400;
-  static const double normalSpeed = 190;
+  static const double normalSpeed = 195;
   static const double baseSegmentSpacing = 12;
 
   late final WormPlayer worm;
+  late final FoodSpawner foodSpawner;
   Vector2? targetDirection;
+
+  final ValueNotifier<int> scoreNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> lengthNotifier = ValueNotifier<int>(12);
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     world.add(ArenaBackground(radius: arenaRadius));
+
+    foodSpawner = FoodSpawner(targetFoodCount: 140);
+    world.add(foodSpawner);
+
     worm = WormPlayer(startPosition: Vector2.zero());
     world.add(worm);
     camera.follow(worm.head);
+
+    scoreNotifier.value = 0;
+    lengthNotifier.value = worm.segmentCount;
   }
 
   @override
@@ -104,6 +115,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   final WormHeadAnchor head;
   double angle = 0;
   int segmentCount = 12;
+  int score = 0;
   final List<Vector2> pathHistory = [];
 
   WormPlayer({required Vector2 startPosition})
@@ -134,18 +146,36 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     final velocity = Vector2(cos(angle), sin(angle)) * WormsArenaGame.normalSpeed;
     head.position += velocity * dt;
 
-    // إبقاء الدودة داخل حدود الساحة الدائرية
     final distFromCenter = head.position.length;
     final maxR = WormsArenaGame.arenaRadius - 24;
     if (distFromCenter > maxR) {
       head.position = head.position.normalized() * maxR;
     }
 
+    _checkFoodEating();
+
     pathHistory.insert(0, head.position.clone());
 
-    final maxPoints = (segmentCount * WormsArenaGame.baseSegmentSpacing / 2).ceil() + 40;
+    final maxPoints = (segmentCount * WormsArenaGame.baseSegmentSpacing / 2).ceil() + 60;
     if (pathHistory.length > maxPoints) {
       pathHistory.removeRange(maxPoints, pathHistory.length);
+    }
+  }
+
+  void _checkFoodEating() {
+    const eatRadius = 24.0;
+    final foods = game.world.children.whereType<FoodItem>().toList();
+
+    for (final food in foods) {
+      final dist = head.position.distanceTo(food.position);
+      if (dist <= eatRadius + food.radius) {
+        food.removeFromParent();
+        segmentCount += food.growthValue;
+        score += food.growthValue * 10;
+
+        game.scoreNotifier.value = score;
+        game.lengthNotifier.value = segmentCount;
+      }
     }
   }
 
@@ -163,11 +193,10 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   void render(Canvas canvas) {
     final segmentPositions = _sampleSegmentPositions();
 
-    // رسم الذيل من آخر قطعة إلى الرأس حتى يركب الرأس فوق الجسم
     for (int i = segmentPositions.length - 1; i >= 0; i--) {
       final pos = segmentPositions[i];
       final isHead = i == 0;
-      final radius = isHead ? 16.0 : max(8.0, 14.5 - (i * 0.08));
+      final radius = isHead ? 16.0 : max(8.0, 14.5 - (i * 0.06));
 
       final paint = Paint()
         ..color = isHead
