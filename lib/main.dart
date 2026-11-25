@@ -269,6 +269,19 @@ class WormsArenaGame extends FlameGame with PanDetector {
     gameOverNotifier.value = false;
   }
 
+  @override
+  void update(double dt) {
+    super.update(dt);
+    final halfW = size.x / 2;
+    final halfH = size.y / 2;
+    final maxCamX = max(0.0, arenaRadius - halfW);
+    final maxCamY = max(0.0, arenaRadius - halfH);
+    camera.viewfinder.position = Vector2(
+      worm.head.position.x.clamp(-maxCamX, maxCamX),
+      worm.head.position.y.clamp(-maxCamY, maxCamY),
+    );
+  }
+
   void setBoosting(bool active) {
     isBoosting = active && !worm.isDead && worm.segmentCount > 10;
   }
@@ -348,7 +361,13 @@ class ArenaBackground extends PositionComponent {
     }
 
     final pulse = 0.5 + 0.5 * sin(_glowPhase);
-    final zoneRect = Rect.fromLTRB(-radius, -radius, radius, radius);
+    const liftOffset = 40.0;
+    final zoneRect = Rect.fromLTRB(
+      -radius,
+      -radius - liftOffset,
+      radius,
+      radius - liftOffset,
+    );
 
     final outerGlowPaint = Paint()
       ..color = const Color(0xFFFF002B).withValues(alpha: 0.25 + pulse * 0.45)
