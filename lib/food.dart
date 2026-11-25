@@ -29,7 +29,7 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
     final currentRadius = radius * pulseScale;
 
     final glowPaint = Paint()
-      ..color = color.withOpacity(0.28)
+      ..color = color.withValues(alpha: 0.28)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
     canvas.drawCircle(Offset.zero, currentRadius * 1.4, glowPaint);
 
