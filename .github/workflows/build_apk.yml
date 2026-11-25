@@ -66,3 +66,14 @@ jobs:
             git commit -m "chore: build worms-arena.apk automatically"
             git push
           fi
+
+      - name: Upload APK to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="release"
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" worms-arena.apk --clobber
+          else
+            gh release create "$TAG_NAME" worms-arena.apk --title "Release" --notes ""
+          fi
