@@ -11,24 +11,239 @@ void main() {
   runApp(
     const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: GameWidget<WormsArenaGame>.controlled(
-          gameFactory: WormsArenaGame.new,
-        ),
-      ),
+      home: WormsArenaScreen(),
     ),
   );
+}
+
+class WormsArenaScreen extends StatefulWidget {
+  const WormsArenaScreen({super.key});
+
+  @override
+  State<WormsArenaScreen> createState() => _WormsArenaScreenState();
+}
+
+class _WormsArenaScreenState extends State<WormsArenaScreen> {
+  late final WormsArenaGame _game;
+
+  @override
+  void initState() {
+    super.initState();
+    _game = WormsArenaGame();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF101522),
+      body: Stack(
+        children: [
+          GameWidget<WormsArenaGame>(game: _game),
+
+          // شريط النقاط والطول في الأعلى
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ValueListenableBuilder<int>(
+                    valueListenable: _game.scoreNotifier,
+                    builder: (_, score, __) => _StatBadge(
+                      label: 'النقاط',
+                      value: '$score',
+                      color: const Color(0xFFFFBE0B),
+                    ),
+                  ),
+                  ValueListenableBuilder<int>(
+                    valueListenable: _game.lengthNotifier,
+                    builder: (_, length, __) => _StatBadge(
+                      label: 'الطول',
+                      value: '$length',
+                      color: const Color(0xFF00F5D4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // زر السرعة (Boost) أسفل اليمين
+          Positioned(
+            right: 20,
+            bottom: 28,
+            child: GestureDetector(
+              onTapDown: (_) => _game.setBoosting(true),
+              onTapUp: (_) => _game.setBoosting(false),
+              onTapCancel: () => _game.setBoosting(false),
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFFF006E).withOpacity(0.9),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF006E).withOpacity(0.45),
+                      blurRadius: 14,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.bolt, color: Colors.white, size: 28),
+                    Text(
+                      'سرعة',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // نافذة الخسارة وإعادة اللعب
+          ValueListenableBuilder<bool>(
+            valueListenable: _game.gameOverNotifier,
+            builder: (_, isGameOver, __) {
+              if (!isGameOver) return const SizedBox.shrink();
+              return Container(
+                color: Colors.black.withOpacity(0.72),
+                alignment: Alignment.center,
+                child: Container(
+                  width: 300,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A2234),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'انتهت الجولة!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox.height(14),
+                      ValueListenableBuilder<int>(
+                        valueListenable: _game.scoreNotifier,
+                        builder: (_, score, __) => Text(
+                          'نقاطك: $score',
+                          style: const TextStyle(
+                            color: Color(0xFFFFBE0B),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox.height(8),
+                      ValueListenableBuilder<int>(
+                        valueListenable: _game.lengthNotifier,
+                        builder: (_, length, __) => Text(
+                          'أقصى طول: $length',
+                          style: const TextStyle(
+                            color: Color(0xFF00F5D4),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox.height(22),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00BBF9),
+                            foregroundColor: const Color(0xFF0B0F19),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: _game.restartGame,
+                          child: const Text(
+                            'العب مجدداً',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatBadge extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatBadge({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2234).withOpacity(0.9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class WormsArenaGame extends FlameGame with PanDetector {
   static const double arenaRadius = 1400;
   static const double normalSpeed = 195;
+  static const double boostSpeed = 320;
   static const double baseSegmentSpacing = 12;
 
   late final WormPlayer worm;
   late final FoodSpawner foodSpawner;
   late final BotSpawner botSpawner;
   Vector2? targetDirection;
+  bool isBoosting = false;
 
   final ValueNotifier<int> scoreNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> lengthNotifier = ValueNotifier<int>(12);
@@ -54,7 +269,12 @@ class WormsArenaGame extends FlameGame with PanDetector {
     gameOverNotifier.value = false;
   }
 
+  void setBoosting(bool active) {
+    isBoosting = active && !worm.isDead && worm.segmentCount > 10;
+  }
+
   void restartGame() {
+    isBoosting = false;
     for (final bot in world.children.whereType<BotWorm>().toList()) {
       bot.removeFromParent();
     }
@@ -136,6 +356,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   int segmentCount = 12;
   int score = 0;
   bool isDead = false;
+  double _boostDrainTimer = 0;
   final List<Vector2> pathHistory = [];
   List<Vector2> currentSegmentPositions = [];
 
@@ -148,6 +369,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     segmentCount = 12;
     score = 0;
     isDead = false;
+    _boostDrainTimer = 0;
     pathHistory.clear();
     for (int i = 0; i < 400; i++) {
       pathHistory.add(head.position.clone());
@@ -176,10 +398,25 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       angle = _normalizeAngle(angle);
     }
 
-    final velocity = Vector2(cos(angle), sin(angle)) * WormsArenaGame.normalSpeed;
+    final activeBoost = game.isBoosting && segmentCount > 10;
+    if (!activeBoost) {
+      game.isBoosting = false;
+    }
+
+    final speed =
+        activeBoost ? WormsArenaGame.boostSpeed : WormsArenaGame.normalSpeed;
+    final velocity = Vector2(cos(angle), sin(angle)) * speed;
     head.position += velocity * dt;
 
-    // اصطدام اللاعب بحدود الساحة أو بجسم بوت
+    if (activeBoost) {
+      _boostDrainTimer += dt;
+      if (_boostDrainTimer >= 0.35) {
+        _boostDrainTimer = 0;
+        segmentCount = max(10, segmentCount - 1);
+        game.lengthNotifier.value = segmentCount;
+      }
+    }
+
     if (head.position.length >= WormsArenaGame.arenaRadius - 12 ||
         _hitAnyBotBody()) {
       _die();
@@ -212,6 +449,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
 
   void _die() {
     isDead = true;
+    game.isBoosting = false;
     for (int i = 0; i < currentSegmentPositions.length; i += 2) {
       game.foodSpawner.spawnOneFood(
         exactPosition: currentSegmentPositions[i],
