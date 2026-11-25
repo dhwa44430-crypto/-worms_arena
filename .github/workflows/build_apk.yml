@@ -35,7 +35,7 @@ jobs:
       - name: Ensure Android platform files exist
         run: |
           if [ ! -d "android" ]; then
-            flutter create --platforms=android .
+            flutter create --project-name worms_arena --platforms=android .
           fi
 
       - name: Install dependencies
