@@ -7,6 +7,7 @@ import 'package:worms_arena/main.dart';
 
 class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
   final Random _random = Random();
+  @override
   double angle;
   int segmentCount;
   final Color primaryColor;
