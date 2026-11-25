@@ -81,10 +81,10 @@ class _WormsArenaScreenState extends State<WormsArenaScreen> {
                 height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFFF006E).withOpacity(0.9),
+                  color: const Color(0xFFFF006E).withValues(alpha: 0.9),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFF006E).withOpacity(0.45),
+                      color: const Color(0xFFFF006E).withValues(alpha: 0.45),
                       blurRadius: 14,
                       spreadRadius: 2,
                     ),
@@ -114,7 +114,7 @@ class _WormsArenaScreenState extends State<WormsArenaScreen> {
             builder: (_, isGameOver, __) {
               if (!isGameOver) return const SizedBox.shrink();
               return Container(
-                color: Colors.black.withOpacity(0.72),
+                color: Colors.black.withValues(alpha: 0.72),
                 alignment: Alignment.center,
                 child: Container(
                   width: 300,
@@ -208,9 +208,9 @@ class _StatBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A2234).withOpacity(0.9),
+        color: const Color(0xFF1A2234).withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
