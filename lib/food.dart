@@ -55,7 +55,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   @override
   void update(double dt) {
     super.update(dt);
-    final currentFoods = world.children.whereType<FoodItem>().length;
+    final currentFoods = game.world.children.whereType<FoodItem>().length;
     if (currentFoods < targetFoodCount) {
       final missing = min(5, targetFoodCount - currentFoods);
       for (int i = 0; i < missing; i++) {
@@ -82,7 +82,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
     final chosenColor = customColor ?? palette[_random.nextInt(palette.length)];
 
-    world.add(
+    game.world.add(
       FoodItem(
         position: pos,
         growthValue: growth,
