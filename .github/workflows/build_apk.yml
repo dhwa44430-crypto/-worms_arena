@@ -1,0 +1,63 @@
+name: Build and Commit Android APK
+
+on:
+  push:
+    branches: [ "**" ]
+    paths-ignore:
+      - "worms-arena.apk"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          channel: "stable"
+
+      - name: Ensure Android platform files exist
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create --platforms=android .
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze project
+        run: flutter analyze
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Copy APK into repository root
+        run: cp build/app/outputs/flutter-apk/app-release.apk worms-arena.apk
+
+      - name: Commit and push APK to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add worms-arena.apk
+          if git diff --staged --quiet; then
+            echo "No APK changes to commit"
+          else
+            git commit -m "chore: build worms-arena.apk automatically"
+            git push
+          fi
