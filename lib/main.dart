@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:worms_arena/bots.dart';
 import 'package:worms_arena/food.dart';
 
 void main() {
@@ -26,18 +27,23 @@ class WormsArenaGame extends FlameGame with PanDetector {
 
   late final WormPlayer worm;
   late final FoodSpawner foodSpawner;
+  late final BotSpawner botSpawner;
   Vector2? targetDirection;
 
   final ValueNotifier<int> scoreNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> lengthNotifier = ValueNotifier<int>(12);
+  final ValueNotifier<bool> gameOverNotifier = ValueNotifier<bool>(false);
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     world.add(ArenaBackground(radius: arenaRadius));
 
-    foodSpawner = FoodSpawner(targetFoodCount: 140);
+    foodSpawner = FoodSpawner(targetFoodCount: 160);
     world.add(foodSpawner);
+
+    botSpawner = BotSpawner(targetBotCount: 10);
+    world.add(botSpawner);
 
     worm = WormPlayer(startPosition: Vector2.zero());
     world.add(worm);
@@ -45,6 +51,19 @@ class WormsArenaGame extends FlameGame with PanDetector {
 
     scoreNotifier.value = 0;
     lengthNotifier.value = worm.segmentCount;
+    gameOverNotifier.value = false;
+  }
+
+  void restartGame() {
+    for (final bot in world.children.whereType<BotWorm>().toList()) {
+      bot.removeFromParent();
+    }
+    worm.reset(Vector2.zero());
+    scoreNotifier.value = 0;
+    lengthNotifier.value = worm.segmentCount;
+    gameOverNotifier.value = false;
+    botSpawner = BotSpawner(targetBotCount: 10);
+    world.add(botSpawner);
   }
 
   @override
@@ -116,23 +135,37 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   double angle = 0;
   int segmentCount = 12;
   int score = 0;
+  bool isDead = false;
   final List<Vector2> pathHistory = [];
+  List<Vector2> currentSegmentPositions = [];
 
   WormPlayer({required Vector2 startPosition})
       : head = WormHeadAnchor(position: startPosition);
+
+  void reset(Vector2 startPosition) {
+    head.position = startPosition.clone();
+    angle = 0;
+    segmentCount = 12;
+    score = 0;
+    isDead = false;
+    pathHistory.clear();
+    for (int i = 0; i < 400; i++) {
+      pathHistory.add(head.position.clone());
+    }
+    currentSegmentPositions = _sampleSegmentPositions();
+  }
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     add(head);
-    for (int i = 0; i < 400; i++) {
-      pathHistory.add(head.position.clone());
-    }
+    reset(head.position);
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+    if (isDead) return;
 
     final desiredDir = game.targetDirection;
     if (desiredDir != null && desiredDir.length > 0) {
@@ -146,20 +179,49 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     final velocity = Vector2(cos(angle), sin(angle)) * WormsArenaGame.normalSpeed;
     head.position += velocity * dt;
 
-    final distFromCenter = head.position.length;
-    final maxR = WormsArenaGame.arenaRadius - 24;
-    if (distFromCenter > maxR) {
-      head.position = head.position.normalized() * maxR;
+    // اصطدام اللاعب بحدود الساحة أو بجسم بوت
+    if (head.position.length >= WormsArenaGame.arenaRadius - 12 ||
+        _hitAnyBotBody()) {
+      _die();
+      return;
     }
 
     _checkFoodEating();
 
     pathHistory.insert(0, head.position.clone());
-
-    final maxPoints = (segmentCount * WormsArenaGame.baseSegmentSpacing / 2).ceil() + 60;
+    final maxPoints =
+        (segmentCount * WormsArenaGame.baseSegmentSpacing / 2).ceil() + 60;
     if (pathHistory.length > maxPoints) {
       pathHistory.removeRange(maxPoints, pathHistory.length);
     }
+
+    currentSegmentPositions = _sampleSegmentPositions();
+  }
+
+  bool _hitAnyBotBody() {
+    for (final bot in game.world.children.whereType<BotWorm>()) {
+      final botSegments = bot.sampleSegmentPositions();
+      for (int i = 1; i < botSegments.length; i++) {
+        if (head.position.distanceTo(botSegments[i]) < 23) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  void _die() {
+    isDead = true;
+    for (int i = 0; i < currentSegmentPositions.length; i += 2) {
+      game.foodSpawner.spawnOneFood(
+        exactPosition: currentSegmentPositions[i],
+        customGrowth: 2,
+        customColor: i % 4 == 0
+            ? const Color(0xFF00F5D4)
+            : const Color(0xFF00BBF9),
+      );
+    }
+    game.gameOverNotifier.value = true;
   }
 
   void _checkFoodEating() {
@@ -191,7 +253,8 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
 
   @override
   void render(Canvas canvas) {
-    final segmentPositions = _sampleSegmentPositions();
+    if (isDead) return;
+    final segmentPositions = currentSegmentPositions;
 
     for (int i = segmentPositions.length - 1; i >= 0; i--) {
       final pos = segmentPositions[i];
