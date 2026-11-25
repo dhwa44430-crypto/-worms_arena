@@ -135,7 +135,7 @@ class _WormsArenaScreenState extends State<WormsArenaScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox.height(14),
+                      const SizedBox(height: 14),
                       ValueListenableBuilder<int>(
                         valueListenable: _game.scoreNotifier,
                         builder: (_, score, __) => Text(
@@ -147,7 +147,7 @@ class _WormsArenaScreenState extends State<WormsArenaScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox.height(8),
+                      const SizedBox(height: 8),
                       ValueListenableBuilder<int>(
                         valueListenable: _game.lengthNotifier,
                         builder: (_, length, __) => Text(
@@ -158,7 +158,7 @@ class _WormsArenaScreenState extends State<WormsArenaScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox.height(22),
+                      const SizedBox(height: 22),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -287,7 +287,7 @@ class WormsArenaGame extends FlameGame with PanDetector {
   }
 
   @override
-  void onPanStart(DragDownInfo info) {
+  void onPanStart(DragStartInfo info) {
     _updateTargetFromScreen(info.eventPosition.global);
   }
 
