@@ -16,6 +16,8 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
   double _aiTimer = 0;
   double _targetAngle;
   bool _isDead = false;
+  double _magnetTimer = 0;
+  double _boostTimer = 0;
 
   BotWorm({
     required Vector2 startPosition,
@@ -39,6 +41,13 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
     super.update(dt);
     if (_isDead) return;
 
+    if (_magnetTimer > 0) {
+      _magnetTimer = max(0.0, _magnetTimer - dt);
+    }
+    if (_boostTimer > 0) {
+      _boostTimer = max(0.0, _boostTimer - dt);
+    }
+
     _updateAiDirection(dt);
 
     final diff = _normalizeAngle(_targetAngle - angle);
@@ -46,13 +55,17 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
     angle += diff.clamp(-maxTurnSpeed * dt, maxTurnSpeed * dt);
     angle = _normalizeAngle(angle);
 
-    const botSpeed = 165.0;
+    final botSpeed = _boostTimer > 0 ? 275.0 : 165.0;
     position += Vector2(cos(angle), sin(angle)) * botSpeed * dt;
 
     // إذا خرج البوت عن حدود الساحة يموت ويتحول إلى طعام
     if (position.length >= WormsArenaGame.arenaRadius - 12) {
       dieAndDropFood();
       return;
+    }
+
+    if (_magnetTimer > 0) {
+      _pullNearbyFood(dt);
     }
 
     _checkEatingFood();
@@ -63,6 +76,20 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
         (segmentCount * WormsArenaGame.baseSegmentSpacing / 2).ceil() + 60;
     if (pathHistory.length > maxPoints) {
       pathHistory.removeRange(maxPoints, pathHistory.length);
+    }
+  }
+
+  void _pullNearbyFood(double dt) {
+    const magnetRadius = 220.0;
+    const pullSpeed = 340.0;
+    for (final food in game.world.children.whereType<FoodItem>()) {
+      if (food.isRemoved) continue;
+      final toBot = position - food.position;
+      final dist = toBot.length;
+      if (dist > 0 && dist <= magnetRadius) {
+        final step = min(dist, pullSpeed * dt);
+        food.position += (toBot / dist) * step;
+      }
     }
   }
 
@@ -105,6 +132,11 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
 
     for (final food in foods) {
       if (position.distanceTo(food.position) <= eatRadius + food.radius) {
+        if (food.effectType == FoodEffectType.magnet) {
+          _magnetTimer = 6.0;
+        } else if (food.effectType == FoodEffectType.boost) {
+          _boostTimer = 4.0;
+        }
         food.removeFromParent();
         segmentCount += food.growthValue;
       }
