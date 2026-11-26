@@ -444,7 +444,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     if (desiredDir != null && desiredDir.length > 0) {
       final targetAngle = atan2(desiredDir.y, desiredDir.x);
       final diff = _normalizeAngle(targetAngle - angle);
-      const maxTurnSpeed = 12.5;
+      const maxTurnSpeed = 24.0;
       angle += diff.clamp(-maxTurnSpeed * dt, maxTurnSpeed * dt);
       angle = _normalizeAngle(angle);
     }
