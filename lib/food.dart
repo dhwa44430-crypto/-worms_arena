@@ -15,6 +15,7 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   final Color color;
   final double radius;
   final FoodEffectType effectType;
+  final String emoji;
   double _pulsePhase = 0;
 
   FoodItem({
@@ -23,6 +24,7 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
     required this.color,
     required this.radius,
     this.effectType = FoodEffectType.normal,
+    this.emoji = '🍎',
   }) : super(position: position, anchor: Anchor.center);
 
   @override
@@ -48,39 +50,45 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   }
 
   void _renderSmiley(Canvas canvas, double r) {
-    final facePaint = Paint()
-      ..color = const Color(0xFF0B0F19)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = max(1.2, r * 0.14)
-      ..strokeCap = StrokeCap.round;
+    final paragraphBuilder = ParagraphBuilder(
+      ParagraphStyle(
+        textAlign: TextAlign.center,
+        fontSize: r * 1.55,
+      ),
+    )
+      ..pushStyle(TextStyle(fontSize: r * 1.55))
+      ..addText(emoji);
 
-    final eyeFillPaint = Paint()..color = const Color(0xFF0B0F19);
-    final eyeOffsetX = r * 0.34;
-    final eyeOffsetY = -r * 0.18;
-    final eyeRadius = max(1.1, r * 0.12);
+    final paragraph = paragraphBuilder.build()
+      ..layout(ParagraphConstraints(width: r * 2.4));
 
-    canvas.drawCircle(Offset(-eyeOffsetX, eyeOffsetY), eyeRadius, eyeFillPaint);
-    canvas.drawCircle(Offset(eyeOffsetX, eyeOffsetY), eyeRadius, eyeFillPaint);
-
-    final smileRect = Rect.fromCenter(
-      center: Offset(0, r * 0.08),
-      width: r * 0.95,
-      height: r * 0.65,
+    canvas.drawParagraph(
+      paragraph,
+      Offset(-paragraph.width / 2, -paragraph.height / 2),
     );
-
-    if (effectType == FoodEffectType.magnet) {
-      canvas.drawArc(smileRect, 0.2, pi - 0.4, false, facePaint);
-    } else if (effectType == FoodEffectType.boost) {
-      canvas.drawArc(smileRect, 0.1, pi - 0.2, false, facePaint);
-    } else {
-      canvas.drawArc(smileRect, 0.15, pi - 0.3, false, facePaint);
-    }
   }
 }
 
 class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   final Random _random = Random();
   final int targetFoodCount;
+
+  static const List<String> _foodEmojis = [
+    '🍅',
+    '🫒',
+    '🥭',
+    '🍎',
+    '🍓',
+    '🍍',
+    '🍋‍🟩',
+    '🍉',
+    '🍌',
+    '🫐',
+    '🍔',
+    '🍕',
+    '🍗',
+    '🌭',
+  ];
 
   FoodSpawner({this.targetFoodCount = 420});
 
@@ -152,6 +160,8 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
               : palette[_random.nextInt(palette.length)]);
     }
 
+    final chosenEmoji = _foodEmojis[_random.nextInt(_foodEmojis.length)];
+
     game.world.add(
       FoodItem(
         position: pos,
@@ -159,6 +169,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         color: chosenColor,
         radius: rad,
         effectType: effect,
+        emoji: chosenEmoji,
       ),
     );
   }
