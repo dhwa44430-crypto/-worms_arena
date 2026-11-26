@@ -408,6 +408,8 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   int score = 0;
   bool isDead = false;
   double _boostDrainTimer = 0;
+  double _magnetTimer = 0;
+  double _foodBoostTimer = 0;
   final List<Vector2> pathHistory = [];
   List<Vector2> currentSegmentPositions = [];
 
@@ -421,6 +423,8 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     score = 0;
     isDead = false;
     _boostDrainTimer = 0;
+    _magnetTimer = 0;
+    _foodBoostTimer = 0;
     pathHistory.clear();
     for (int i = 0; i < 400; i++) {
       pathHistory.add(head.position.clone());
@@ -440,6 +444,13 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     super.update(dt);
     if (isDead) return;
 
+    if (_magnetTimer > 0) {
+      _magnetTimer = max(0.0, _magnetTimer - dt);
+    }
+    if (_foodBoostTimer > 0) {
+      _foodBoostTimer = max(0.0, _foodBoostTimer - dt);
+    }
+
     final desiredDir = game.targetDirection;
     if (desiredDir != null && desiredDir.length > 0) {
       final targetAngle = atan2(desiredDir.y, desiredDir.x);
@@ -454,8 +465,11 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       game.isBoosting = false;
     }
 
-    final speed =
-        activeBoost ? WormsArenaGame.boostSpeed : WormsArenaGame.normalSpeed;
+    final speed = activeBoost
+        ? WormsArenaGame.boostSpeed
+        : (_foodBoostTimer > 0
+            ? WormsArenaGame.boostSpeed
+            : WormsArenaGame.normalSpeed);
     final velocity = Vector2(cos(angle), sin(angle)) * speed;
     head.position += velocity * dt;
 
@@ -476,6 +490,10 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       return;
     }
 
+    if (_magnetTimer > 0) {
+      _pullNearbyFood(dt);
+    }
+
     _checkFoodEating();
 
     pathHistory.insert(0, head.position.clone());
@@ -486,6 +504,20 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     }
 
     currentSegmentPositions = _sampleSegmentPositions();
+  }
+
+  void _pullNearbyFood(double dt) {
+    const magnetRadius = 230.0;
+    const pullSpeed = 350.0;
+    for (final food in game.world.children.whereType<FoodItem>()) {
+      if (food.isRemoved) continue;
+      final toHead = head.position - food.position;
+      final dist = toHead.length;
+      if (dist > 0 && dist <= magnetRadius) {
+        final step = min(dist, pullSpeed * dt);
+        food.position += (toHead / dist) * step;
+      }
+    }
   }
 
   bool _hitAnyBotBody() {
@@ -522,6 +554,11 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     for (final food in foods) {
       final dist = head.position.distanceTo(food.position);
       if (dist <= eatRadius + food.radius) {
+        if (food.effectType == FoodEffectType.magnet) {
+          _magnetTimer = 6.0;
+        } else if (food.effectType == FoodEffectType.boost) {
+          _foodBoostTimer = 4.0;
+        }
         food.removeFromParent();
         segmentCount += food.growthValue;
         score += food.growthValue * 10;
