@@ -261,7 +261,7 @@ class WormsArenaGame extends FlameGame with PanDetector {
     await super.onLoad();
     world.add(ArenaBackground(radius: arenaRadius));
 
-    foodSpawner = FoodSpawner(targetFoodCount: 1600);
+    foodSpawner = FoodSpawner(targetFoodCount: 4500);
     world.add(foodSpawner);
 
     botSpawner = BotSpawner(targetBotCount: 10);
