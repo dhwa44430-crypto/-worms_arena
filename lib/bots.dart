@@ -96,16 +96,16 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
     final bx = position.x;
     final by = position.y;
 
-    for (final child in game.world.children) {
-      if (child is! FoodItem || child.isRemoved) continue;
-      final dx = bx - child.position.x;
-      final dy = by - child.position.y;
+    for (final food in game.foodSpawner.getFoodsNear(position, magnetRadius)) {
+      if (food.isRemoved) continue;
+      final dx = bx - food.position.x;
+      final dy = by - food.position.y;
       final distSq = dx * dx + dy * dy;
       if (distSq > 0 && distSq <= magnetRadiusSq) {
         final dist = sqrt(distSq);
         final step = min(dist, pullSpeed * dt);
-        child.position.x += (dx / dist) * step;
-        child.position.y += (dy / dist) * step;
+        food.position.x += (dx / dist) * step;
+        food.position.y += (dy / dist) * step;
       }
     }
   }
@@ -130,14 +130,14 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
       final bx = position.x;
       final by = position.y;
 
-      for (final child in game.world.children) {
-        if (child is! FoodItem || child.isRemoved) continue;
-        final dx = child.position.x - bx;
-        final dy = child.position.y - by;
+      for (final food in game.foodSpawner.getFoodsNear(position, maxSearchDist)) {
+        if (food.isRemoved) continue;
+        final dx = food.position.x - bx;
+        final dy = food.position.y - by;
         final dSq = dx * dx + dy * dy;
         if (dSq < bestDistSq) {
           bestDistSq = dSq;
-          nearestFood = child;
+          nearestFood = food;
         }
       }
 
@@ -155,19 +155,19 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
     final bx = position.x;
     final by = position.y;
 
-    for (final child in game.world.children) {
-      if (child is! FoodItem || child.isRemoved) continue;
-      final reach = eatRadius + child.radius;
-      final dx = bx - child.position.x;
-      final dy = by - child.position.y;
+    for (final food in game.foodSpawner.getFoodsNear(position, eatRadius + 16.0)) {
+      if (food.isRemoved) continue;
+      final reach = eatRadius + food.radius;
+      final dx = bx - food.position.x;
+      final dy = by - food.position.y;
       if (dx * dx + dy * dy <= reach * reach) {
-        if (child.effectType == FoodEffectType.magnet) {
+        if (food.effectType == FoodEffectType.magnet) {
           _magnetTimer = 6.0;
-        } else if (child.effectType == FoodEffectType.boost) {
+        } else if (food.effectType == FoodEffectType.boost) {
           _boostTimer = 4.0;
         }
-        child.removeFromParent();
-        segmentCount += child.growthValue;
+        food.removeFromParent();
+        segmentCount += food.growthValue;
       }
     }
   }
