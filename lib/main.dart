@@ -513,16 +513,16 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     final hx = head.position.x;
     final hy = head.position.y;
 
-    for (final child in game.world.children) {
-      if (child is! FoodItem || child.isRemoved) continue;
-      final dx = hx - child.position.x;
-      final dy = hy - child.position.y;
+    for (final food in game.foodSpawner.getFoodsNear(head.position, magnetRadius)) {
+      if (food.isRemoved) continue;
+      final dx = hx - food.position.x;
+      final dy = hy - food.position.y;
       final distSq = dx * dx + dy * dy;
       if (distSq > 0 && distSq <= magnetRadiusSq) {
         final dist = sqrt(distSq);
         final step = min(dist, pullSpeed * dt);
-        child.position.x += (dx / dist) * step;
-        child.position.y += (dy / dist) * step;
+        food.position.x += (dx / dist) * step;
+        food.position.y += (dy / dist) * step;
       }
     }
   }
@@ -567,20 +567,20 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     final hx = head.position.x;
     final hy = head.position.y;
 
-    for (final child in game.world.children) {
-      if (child is! FoodItem || child.isRemoved) continue;
-      final reach = eatRadius + child.radius;
-      final dx = hx - child.position.x;
-      final dy = hy - child.position.y;
+    for (final food in game.foodSpawner.getFoodsNear(head.position, eatRadius + 16.0)) {
+      if (food.isRemoved) continue;
+      final reach = eatRadius + food.radius;
+      final dx = hx - food.position.x;
+      final dy = hy - food.position.y;
       if (dx * dx + dy * dy <= reach * reach) {
-        if (child.effectType == FoodEffectType.magnet) {
+        if (food.effectType == FoodEffectType.magnet) {
           _magnetTimer = 6.0;
-        } else if (child.effectType == FoodEffectType.boost) {
+        } else if (food.effectType == FoodEffectType.boost) {
           _foodBoostTimer = 4.0;
         }
-        child.removeFromParent();
-        segmentCount += child.growthValue;
-        score += child.growthValue * 10;
+        food.removeFromParent();
+        segmentCount += food.growthValue;
+        score += food.growthValue * 10;
 
         game.scoreNotifier.value = score;
         game.lengthNotifier.value = segmentCount;
