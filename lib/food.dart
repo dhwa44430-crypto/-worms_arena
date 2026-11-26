@@ -17,6 +17,7 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   final FoodEffectType effectType;
   final String emoji;
   double _pulsePhase = 0;
+  late final Paragraph _cachedParagraph;
 
   FoodItem({
     required Vector2 position,
@@ -25,7 +26,20 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
     required this.radius,
     this.effectType = FoodEffectType.normal,
     this.emoji = '🍎',
-  }) : super(position: position, anchor: Anchor.center);
+  }) : super(position: position, anchor: Anchor.center) {
+    final fontSize = radius * 1.55;
+    final paragraphBuilder = ParagraphBuilder(
+      ParagraphStyle(
+        textAlign: TextAlign.center,
+        fontSize: fontSize,
+      ),
+    )
+      ..pushStyle(TextStyle(fontSize: fontSize))
+      ..addText(emoji);
+
+    _cachedParagraph = paragraphBuilder.build()
+      ..layout(ParagraphConstraints(width: radius * 2.4));
+  }
 
   @override
   void update(double dt) {
@@ -36,34 +50,20 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   @override
   void render(Canvas canvas) {
     final pulseScale = 1.0 + (sin(_pulsePhase) * 0.12);
-    final currentRadius = radius * pulseScale;
-
-    _renderSmiley(canvas, currentRadius);
-  }
-
-  void _renderSmiley(Canvas canvas, double r) {
-    final paragraphBuilder = ParagraphBuilder(
-      ParagraphStyle(
-        textAlign: TextAlign.center,
-        fontSize: r * 1.55,
-      ),
-    )
-      ..pushStyle(TextStyle(fontSize: r * 1.55))
-      ..addText(emoji);
-
-    final paragraph = paragraphBuilder.build()
-      ..layout(ParagraphConstraints(width: r * 2.4));
-
+    canvas.save();
+    canvas.scale(pulseScale);
     canvas.drawParagraph(
-      paragraph,
-      Offset(-paragraph.width / 2, -paragraph.height / 2),
+      _cachedParagraph,
+      Offset(-_cachedParagraph.width / 2, -_cachedParagraph.height / 2),
     );
+    canvas.restore();
   }
 }
 
 class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   final Random _random = Random();
   final int targetFoodCount;
+  double _spawnCheckTimer = 0;
 
   static const List<String> _foodEmojis = [
     '🍅',
@@ -95,9 +95,13 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   @override
   void update(double dt) {
     super.update(dt);
+    _spawnCheckTimer += dt;
+    if (_spawnCheckTimer < 0.25) return;
+    _spawnCheckTimer = 0;
+
     final currentFoods = game.world.children.whereType<FoodItem>().length;
     if (currentFoods < targetFoodCount) {
-      final missing = min(15, targetFoodCount - currentFoods);
+      final missing = min(25, targetFoodCount - currentFoods);
       for (int i = 0; i < missing; i++) {
         spawnOneFood();
       }
