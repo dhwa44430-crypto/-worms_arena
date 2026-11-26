@@ -18,6 +18,7 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   final String emoji;
   final bool respawnOnEat;
   double _pulsePhase = 0;
+  int _gridKey = 0;
   late final Paragraph _cachedParagraph;
 
   FoodItem({
@@ -44,9 +45,18 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   }
 
   @override
+  void onMount() {
+    super.onMount();
+    _gridKey = game.foodSpawner.registerFoodInGrid(this);
+  }
+
+  @override
   void update(double dt) {
     super.update(dt);
     _pulsePhase += dt * 5;
+    if (isMounted) {
+      _gridKey = game.foodSpawner.updateFoodInGrid(this, _gridKey);
+    }
   }
 
   @override
@@ -63,15 +73,18 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
 
   @override
   void onRemove() {
-    if (respawnOnEat && isMounted) {
-      game.foodSpawner.scheduleRespawn(
-        position: position.clone(),
-        growthValue: growthValue,
-        color: color,
-        radius: radius,
-        effectType: effectType,
-        emoji: emoji,
-      );
+    if (isMounted) {
+      game.foodSpawner.unregisterFoodFromGrid(this, _gridKey);
+      if (respawnOnEat) {
+        game.foodSpawner.scheduleRespawn(
+          position: position.clone(),
+          growthValue: growthValue,
+          color: color,
+          radius: radius,
+          effectType: effectType,
+          emoji: emoji,
+        );
+      }
     }
     super.onRemove();
   }
@@ -98,9 +111,13 @@ class _PendingRespawn {
 }
 
 class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
+  static const double gridCellSize = 300.0;
+
   final Random _random = Random();
   final int targetFoodCount;
   final List<_PendingRespawn> _pendingRespawns = [];
+  final Map<int, List<FoodItem>> _gridBuckets = {};
+  int _activeFoodCount = 0;
   double _spawnCheckTimer = 0;
 
   static const List<String> _foodEmojis = [
@@ -121,6 +138,71 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   ];
 
   FoodSpawner({this.targetFoodCount = 420});
+
+  int _cellCoord(double v) => (v / gridCellSize).floor();
+
+  int _packCellKey(int cx, int cy) => (cx * 73856093) ^ (cy * 19349663);
+
+  int _keyForPosition(Vector2 pos) {
+    return _packCellKey(_cellCoord(pos.x), _cellCoord(pos.y));
+  }
+
+  int registerFoodInGrid(FoodItem food) {
+    final key = _keyForPosition(food.position);
+    final list = _gridBuckets.putIfAbsent(key, () => <FoodItem>[]);
+    if (!list.contains(food)) {
+      list.add(food);
+      _activeFoodCount++;
+    }
+    return key;
+  }
+
+  int updateFoodInGrid(FoodItem food, int oldKey) {
+    final newKey = _keyForPosition(food.position);
+    if (newKey == oldKey) return oldKey;
+    final oldList = _gridBuckets[oldKey];
+    if (oldList != null) {
+      oldList.remove(food);
+      if (oldList.isEmpty) {
+        _gridBuckets.remove(oldKey);
+      }
+    }
+    final newList = _gridBuckets.putIfAbsent(newKey, () => <FoodItem>[]);
+    if (!newList.contains(food)) {
+      newList.add(food);
+    }
+    return newKey;
+  }
+
+  void unregisterFoodFromGrid(FoodItem food, int key) {
+    final list = _gridBuckets[key];
+    if (list != null && list.remove(food)) {
+      if (_activeFoodCount > 0) _activeFoodCount--;
+      if (list.isEmpty) {
+        _gridBuckets.remove(key);
+      }
+    }
+  }
+
+  Iterable<FoodItem> getFoodsNear(Vector2 center, double radius) sync* {
+    final minCx = _cellCoord(center.x - radius);
+    final maxCx = _cellCoord(center.x + radius);
+    final minCy = _cellCoord(center.y - radius);
+    final maxCy = _cellCoord(center.y + radius);
+
+    for (int cx = minCx; cx <= maxCx; cx++) {
+      for (int cy = minCy; cy <= maxCy; cy++) {
+        final list = _gridBuckets[_packCellKey(cx, cy)];
+        if (list == null) continue;
+        for (int i = 0; i < list.length; i++) {
+          final food = list[i];
+          if (!food.isRemoved) {
+            yield food;
+          }
+        }
+      }
+    }
+  }
 
   void scheduleRespawn({
     required Vector2 position,
@@ -146,7 +228,8 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    for (int i = 0; i < targetFoodCount; i++) {
+    final initialBatch = min(targetFoodCount, 1200);
+    for (int i = 0; i < initialBatch; i++) {
       spawnOneFood(respawnOnEat: true);
     }
   }
@@ -175,13 +258,12 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
     }
 
     _spawnCheckTimer += dt;
-    if (_spawnCheckTimer < 0.25) return;
+    if (_spawnCheckTimer < 0.1) return;
     _spawnCheckTimer = 0;
 
-    final currentFoods = game.world.children.whereType<FoodItem>().length;
     final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
-    if (currentFoods < desiredExtra) {
-      final missing = min(25, desiredExtra - currentFoods);
+    if (_activeFoodCount < desiredExtra) {
+      final missing = min(150, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
         spawnOneFood(respawnOnEat: true);
       }
