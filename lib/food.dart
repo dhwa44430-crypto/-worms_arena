@@ -16,6 +16,7 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   final double radius;
   final FoodEffectType effectType;
   final String emoji;
+  final bool respawnOnEat;
   double _pulsePhase = 0;
   late final Paragraph _cachedParagraph;
 
@@ -26,6 +27,7 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
     required this.radius,
     this.effectType = FoodEffectType.normal,
     this.emoji = '🍎',
+    this.respawnOnEat = false,
   }) : super(position: position, anchor: Anchor.center) {
     final fontSize = radius * 1.55;
     final paragraphBuilder = ParagraphBuilder(
@@ -58,11 +60,47 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
     );
     canvas.restore();
   }
+
+  @override
+  void onRemove() {
+    if (respawnOnEat && isMounted) {
+      game.foodSpawner.scheduleRespawn(
+        position: position.clone(),
+        growthValue: growthValue,
+        color: color,
+        radius: radius,
+        effectType: effectType,
+        emoji: emoji,
+      );
+    }
+    super.onRemove();
+  }
+}
+
+class _PendingRespawn {
+  final Vector2 position;
+  final int growthValue;
+  final Color color;
+  final double radius;
+  final FoodEffectType effectType;
+  final String emoji;
+  double remainingSeconds;
+
+  _PendingRespawn({
+    required this.position,
+    required this.growthValue,
+    required this.color,
+    required this.radius,
+    required this.effectType,
+    required this.emoji,
+    required this.remainingSeconds,
+  });
 }
 
 class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   final Random _random = Random();
   final int targetFoodCount;
+  final List<_PendingRespawn> _pendingRespawns = [];
   double _spawnCheckTimer = 0;
 
   static const List<String> _foodEmojis = [
@@ -84,26 +122,68 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
   FoodSpawner({this.targetFoodCount = 420});
 
+  void scheduleRespawn({
+    required Vector2 position,
+    required int growthValue,
+    required Color color,
+    required double radius,
+    required FoodEffectType effectType,
+    required String emoji,
+  }) {
+    _pendingRespawns.add(
+      _PendingRespawn(
+        position: position,
+        growthValue: growthValue,
+        color: color,
+        radius: radius,
+        effectType: effectType,
+        emoji: emoji,
+        remainingSeconds: 30.0,
+      ),
+    );
+  }
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     for (int i = 0; i < targetFoodCount; i++) {
-      spawnOneFood();
+      spawnOneFood(respawnOnEat: true);
     }
   }
 
   @override
   void update(double dt) {
     super.update(dt);
+
+    for (int i = _pendingRespawns.length - 1; i >= 0; i--) {
+      final item = _pendingRespawns[i];
+      item.remainingSeconds -= dt;
+      if (item.remainingSeconds <= 0) {
+        _pendingRespawns.removeAt(i);
+        game.world.add(
+          FoodItem(
+            position: item.position,
+            growthValue: item.growthValue,
+            color: item.color,
+            radius: item.radius,
+            effectType: item.effectType,
+            emoji: item.emoji,
+            respawnOnEat: true,
+          ),
+        );
+      }
+    }
+
     _spawnCheckTimer += dt;
     if (_spawnCheckTimer < 0.25) return;
     _spawnCheckTimer = 0;
 
     final currentFoods = game.world.children.whereType<FoodItem>().length;
-    if (currentFoods < targetFoodCount) {
-      final missing = min(25, targetFoodCount - currentFoods);
+    final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
+    if (currentFoods < desiredExtra) {
+      final missing = min(25, desiredExtra - currentFoods);
       for (int i = 0; i < missing; i++) {
-        spawnOneFood();
+        spawnOneFood(respawnOnEat: true);
       }
     }
   }
@@ -113,6 +193,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
     int? customGrowth,
     Color? customColor,
     FoodEffectType? customEffect,
+    bool respawnOnEat = false,
   }) {
     final pos = exactPosition ?? _randomArenaPoint();
     final isBig = _random.nextDouble() < 0.22;
@@ -133,30 +214,38 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
     FoodEffectType effect = customEffect ?? FoodEffectType.normal;
     Color chosenColor;
+    String chosenEmoji;
 
     if (customColor != null) {
       chosenColor = customColor;
+      chosenEmoji = _foodEmojis[_random.nextInt(_foodEmojis.length)];
     } else if (customEffect == null) {
       final roll = _random.nextDouble();
       if (roll < 0.08) {
         effect = FoodEffectType.magnet;
         chosenColor = const Color(0xFF00BBF9);
+        chosenEmoji = '🧲';
       } else if (roll < 0.16) {
         effect = FoodEffectType.boost;
         chosenColor = const Color(0xFFFF006E);
+        chosenEmoji = '⚡';
       } else {
         effect = FoodEffectType.normal;
         chosenColor = palette[_random.nextInt(palette.length)];
+        chosenEmoji = _foodEmojis[_random.nextInt(_foodEmojis.length)];
       }
     } else {
-      chosenColor = effect == FoodEffectType.magnet
-          ? const Color(0xFF00BBF9)
-          : (effect == FoodEffectType.boost
-              ? const Color(0xFFFF006E)
-              : palette[_random.nextInt(palette.length)]);
+      if (effect == FoodEffectType.magnet) {
+        chosenColor = const Color(0xFF00BBF9);
+        chosenEmoji = '🧲';
+      } else if (effect == FoodEffectType.boost) {
+        chosenColor = const Color(0xFFFF006E);
+        chosenEmoji = '⚡';
+      } else {
+        chosenColor = palette[_random.nextInt(palette.length)];
+        chosenEmoji = _foodEmojis[_random.nextInt(_foodEmojis.length)];
+      }
     }
-
-    final chosenEmoji = _foodEmojis[_random.nextInt(_foodEmojis.length)];
 
     game.world.add(
       FoodItem(
@@ -166,6 +255,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         radius: rad,
         effectType: effect,
         emoji: chosenEmoji,
+        respawnOnEat: respawnOnEat,
       ),
     );
   }
