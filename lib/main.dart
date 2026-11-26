@@ -447,9 +447,6 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       const maxTurnSpeed = 12.5;
       angle += diff.clamp(-maxTurnSpeed * dt, maxTurnSpeed * dt);
       angle = _normalizeAngle(angle);
-    } else {
-      const idleOrbitSpeed = 2.6;
-      angle = _normalizeAngle(angle + idleOrbitSpeed * dt);
     }
 
     final activeBoost = game.isBoosting && segmentCount > 10;
