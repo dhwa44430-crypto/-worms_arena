@@ -18,6 +18,9 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
   bool _isDead = false;
   double _magnetTimer = 0;
   double _boostTimer = 0;
+  List<Vector2> _cachedSegments = [];
+  int _cachedSegmentCount = -1;
+  Vector2? _lastSampledHeadPos;
 
   BotWorm({
     required Vector2 startPosition,
@@ -34,6 +37,9 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
     for (int i = 0; i < 400; i++) {
       pathHistory.add(position.clone());
     }
+    _cachedSegments = _computeSegmentPositions();
+    _cachedSegmentCount = segmentCount;
+    _lastSampledHeadPos = position.clone();
   }
 
   @override
@@ -77,18 +83,29 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
     if (pathHistory.length > maxPoints) {
       pathHistory.removeRange(maxPoints, pathHistory.length);
     }
+
+    _cachedSegments = _computeSegmentPositions();
+    _cachedSegmentCount = segmentCount;
+    _lastSampledHeadPos = position.clone();
   }
 
   void _pullNearbyFood(double dt) {
     const magnetRadius = 220.0;
+    const magnetRadiusSq = magnetRadius * magnetRadius;
     const pullSpeed = 340.0;
-    for (final food in game.world.children.whereType<FoodItem>()) {
-      if (food.isRemoved) continue;
-      final toBot = position - food.position;
-      final dist = toBot.length;
-      if (dist > 0 && dist <= magnetRadius) {
+    final bx = position.x;
+    final by = position.y;
+
+    for (final child in game.world.children) {
+      if (child is! FoodItem || child.isRemoved) continue;
+      final dx = bx - child.position.x;
+      final dy = by - child.position.y;
+      final distSq = dx * dx + dy * dy;
+      if (distSq > 0 && distSq <= magnetRadiusSq) {
+        final dist = sqrt(distSq);
         final step = min(dist, pullSpeed * dt);
-        food.position += (toBot / dist) * step;
+        child.position.x += (dx / dist) * step;
+        child.position.y += (dy / dist) * step;
       }
     }
   }
@@ -108,12 +125,19 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
 
       // البحث عن أقرب طعام ضمن مدى معقول
       FoodItem? nearestFood;
-      double bestDist = 360;
-      for (final food in game.world.children.whereType<FoodItem>()) {
-        final d = position.distanceTo(food.position);
-        if (d < bestDist) {
-          bestDist = d;
-          nearestFood = food;
+      const maxSearchDist = 360.0;
+      double bestDistSq = maxSearchDist * maxSearchDist;
+      final bx = position.x;
+      final by = position.y;
+
+      for (final child in game.world.children) {
+        if (child is! FoodItem || child.isRemoved) continue;
+        final dx = child.position.x - bx;
+        final dy = child.position.y - by;
+        final dSq = dx * dx + dy * dy;
+        if (dSq < bestDistSq) {
+          bestDistSq = dSq;
+          nearestFood = child;
         }
       }
 
@@ -128,39 +152,54 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
 
   void _checkEatingFood() {
     const eatRadius = 22.0;
-    final foods = game.world.children.whereType<FoodItem>().toList();
+    final bx = position.x;
+    final by = position.y;
 
-    for (final food in foods) {
-      if (position.distanceTo(food.position) <= eatRadius + food.radius) {
-        if (food.effectType == FoodEffectType.magnet) {
+    for (final child in game.world.children) {
+      if (child is! FoodItem || child.isRemoved) continue;
+      final reach = eatRadius + child.radius;
+      final dx = bx - child.position.x;
+      final dy = by - child.position.y;
+      if (dx * dx + dy * dy <= reach * reach) {
+        if (child.effectType == FoodEffectType.magnet) {
           _magnetTimer = 6.0;
-        } else if (food.effectType == FoodEffectType.boost) {
+        } else if (child.effectType == FoodEffectType.boost) {
           _boostTimer = 4.0;
         }
-        food.removeFromParent();
-        segmentCount += food.growthValue;
+        child.removeFromParent();
+        segmentCount += child.growthValue;
       }
     }
   }
 
   void _checkCollisions() {
     const hitRadius = 15.0;
+    const minDist = hitRadius + 10;
+    const minDistSq = minDist * minDist;
+    final bx = position.x;
+    final by = position.y;
 
     // 1. اصطدام رأس البوت بجسم اللاعب
     final playerSegments = game.worm.currentSegmentPositions;
     for (int i = 1; i < playerSegments.length; i++) {
-      if (position.distanceTo(playerSegments[i]) < hitRadius + 10) {
+      final seg = playerSegments[i];
+      final dx = bx - seg.x;
+      final dy = by - seg.y;
+      if (dx * dx + dy * dy < minDistSq) {
         dieAndDropFood();
         return;
       }
     }
 
     // 2. اصطدام رأس البوت بجسم بوت آخر
-    for (final other in game.world.children.whereType<BotWorm>()) {
-      if (other == this || other._isDead) continue;
-      final otherSegments = other.sampleSegmentPositions();
+    for (final child in game.world.children) {
+      if (child is! BotWorm || child == this || child._isDead) continue;
+      final otherSegments = child.sampleSegmentPositions();
       for (int i = 1; i < otherSegments.length; i++) {
-        if (position.distanceTo(otherSegments[i]) < hitRadius + 10) {
+        final seg = otherSegments[i];
+        final dx = bx - seg.x;
+        final dy = by - seg.y;
+        if (dx * dx + dy * dy < minDistSq) {
           dieAndDropFood();
           return;
         }
@@ -220,6 +259,19 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
   }
 
   List<Vector2> sampleSegmentPositions() {
+    if (_cachedSegments.isNotEmpty &&
+        _cachedSegmentCount == segmentCount &&
+        _lastSampledHeadPos != null &&
+        _lastSampledHeadPos == position) {
+      return _cachedSegments;
+    }
+    _cachedSegments = _computeSegmentPositions();
+    _cachedSegmentCount = segmentCount;
+    _lastSampledHeadPos = position.clone();
+    return _cachedSegments;
+  }
+
+  List<Vector2> _computeSegmentPositions() {
     final result = <Vector2>[position.clone()];
     if (pathHistory.isEmpty) return result;
 
@@ -255,6 +307,7 @@ class BotSpawner extends Component with HasGameReference<WormsArenaGame> {
   final Random _random = Random();
   final int targetBotCount;
   double _respawnTimer = 0;
+  int _activeBotCount = 0;
 
   static const List<List<Color>> _skinPairs = [
     [Color(0xFFFF595E), Color(0xFFFF924C)],
@@ -280,8 +333,7 @@ class BotSpawner extends Component with HasGameReference<WormsArenaGame> {
     _respawnTimer += dt;
     if (_respawnTimer >= 1.5) {
       _respawnTimer = 0;
-      final currentBots = game.world.children.whereType<BotWorm>().length;
-      if (currentBots < targetBotCount) {
+      if (_activeBotCount < targetBotCount) {
         _spawnBot();
       }
     }
@@ -293,14 +345,17 @@ class BotSpawner extends Component with HasGameReference<WormsArenaGame> {
     final pos = Vector2(cos(theta) * r, sin(theta) * r);
     final pair = _skinPairs[_random.nextInt(_skinPairs.length)];
 
-    game.world.add(
-      BotWorm(
-        startPosition: pos,
-        angle: _random.nextDouble() * 2 * pi,
-        segmentCount: 10 + _random.nextInt(14),
-        primaryColor: pair[0],
-        secondaryColor: pair[1],
-      ),
+    final bot = BotWorm(
+      startPosition: pos,
+      angle: _random.nextDouble() * 2 * pi,
+      segmentCount: 10 + _random.nextInt(14),
+      primaryColor: pair[0],
+      secondaryColor: pair[1],
     );
+    _activeBotCount++;
+    bot.removed.then((_) {
+      if (_activeBotCount > 0) _activeBotCount--;
+    });
+    game.world.add(bot);
   }
 }
