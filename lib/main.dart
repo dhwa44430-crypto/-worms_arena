@@ -508,23 +508,38 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
 
   void _pullNearbyFood(double dt) {
     const magnetRadius = 230.0;
+    const magnetRadiusSq = magnetRadius * magnetRadius;
     const pullSpeed = 350.0;
-    for (final food in game.world.children.whereType<FoodItem>()) {
-      if (food.isRemoved) continue;
-      final toHead = head.position - food.position;
-      final dist = toHead.length;
-      if (dist > 0 && dist <= magnetRadius) {
+    final hx = head.position.x;
+    final hy = head.position.y;
+
+    for (final child in game.world.children) {
+      if (child is! FoodItem || child.isRemoved) continue;
+      final dx = hx - child.position.x;
+      final dy = hy - child.position.y;
+      final distSq = dx * dx + dy * dy;
+      if (distSq > 0 && distSq <= magnetRadiusSq) {
+        final dist = sqrt(distSq);
         final step = min(dist, pullSpeed * dt);
-        food.position += (toHead / dist) * step;
+        child.position.x += (dx / dist) * step;
+        child.position.y += (dy / dist) * step;
       }
     }
   }
 
   bool _hitAnyBotBody() {
-    for (final bot in game.world.children.whereType<BotWorm>()) {
-      final botSegments = bot.sampleSegmentPositions();
+    const hitDistSq = 23.0 * 23.0;
+    final hx = head.position.x;
+    final hy = head.position.y;
+
+    for (final child in game.world.children) {
+      if (child is! BotWorm) continue;
+      final botSegments = child.sampleSegmentPositions();
       for (int i = 1; i < botSegments.length; i++) {
-        if (head.position.distanceTo(botSegments[i]) < 23) {
+        final seg = botSegments[i];
+        final dx = hx - seg.x;
+        final dy = hy - seg.y;
+        if (dx * dx + dy * dy < hitDistSq) {
           return true;
         }
       }
@@ -549,19 +564,23 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
 
   void _checkFoodEating() {
     const eatRadius = 24.0;
-    final foods = game.world.children.whereType<FoodItem>().toList();
+    final hx = head.position.x;
+    final hy = head.position.y;
 
-    for (final food in foods) {
-      final dist = head.position.distanceTo(food.position);
-      if (dist <= eatRadius + food.radius) {
-        if (food.effectType == FoodEffectType.magnet) {
+    for (final child in game.world.children) {
+      if (child is! FoodItem || child.isRemoved) continue;
+      final reach = eatRadius + child.radius;
+      final dx = hx - child.position.x;
+      final dy = hy - child.position.y;
+      if (dx * dx + dy * dy <= reach * reach) {
+        if (child.effectType == FoodEffectType.magnet) {
           _magnetTimer = 6.0;
-        } else if (food.effectType == FoodEffectType.boost) {
+        } else if (child.effectType == FoodEffectType.boost) {
           _foodBoostTimer = 4.0;
         }
-        food.removeFromParent();
-        segmentCount += food.growthValue;
-        score += food.growthValue * 10;
+        child.removeFromParent();
+        segmentCount += child.growthValue;
+        score += child.growthValue * 10;
 
         game.scoreNotifier.value = score;
         game.lengthNotifier.value = segmentCount;
