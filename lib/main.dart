@@ -259,6 +259,7 @@ class WormsArenaGame extends FlameGame with PanDetector {
       bot.removeFromParent();
     }
     worm.reset(Vector2.zero());
+    foodSpawner.spawnFoodAroundWorm(worm.head.position);
     scoreNotifier.value = 0;
     lengthNotifier.value = worm.segmentCount;
     gameOverNotifier.value = false;
