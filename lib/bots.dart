@@ -166,7 +166,6 @@ class BotWorm extends PositionComponent with HasGameReference<WormsArenaGame> {
         } else if (food.effectType == FoodEffectType.boost) {
           _boostTimer = 4.0;
         }
-        game.foodSpawner.markDepletedSpot(food.position.clone());
         food.removeFromParent();
         segmentCount += food.growthValue;
       }
