@@ -87,7 +87,6 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   final Random _random = Random();
   final int targetFoodCount;
   final List<_PendingRespawn> _pendingRespawns = [];
-  final List<Vector2> _depletedSpots = [];
   final Map<int, List<FoodItem>> _gridBuckets = {};
   final List<FoodItem> _allFoods = [];
   int _activeFoodCount = 0;
@@ -111,13 +110,6 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   ];
 
   FoodSpawner({this.targetFoodCount = 420});
-
-  void markDepletedSpot(Vector2 spot) {
-    _depletedSpots.add(spot);
-    if (_depletedSpots.length > 200) {
-      _depletedSpots.removeAt(0);
-    }
-  }
 
   int _cellCoord(double v) => (v / gridCellSize).floor();
 
@@ -230,7 +222,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         _pendingRespawns.removeAt(i);
         _addFoodItem(
           FoodItem(
-            position: item.position.clone(),
+            position: _emptyOrSparseArenaPoint(),
             growthValue: item.growthValue,
             color: item.color,
             radius: item.radius,
@@ -255,7 +247,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         unregisterFoodFromGrid(food, food.gridKey);
         if (food.respawnOnEat) {
           scheduleRespawn(
-            position: food.position.clone(),
+            position: _emptyOrSparseArenaPoint(),
             growthValue: food.growthValue,
             color: food.color,
             radius: food.radius,
@@ -408,9 +400,6 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   }
 
   Vector2 _emptyOrSparseArenaPoint() {
-    if (_depletedSpots.isNotEmpty) {
-      return _depletedSpots.removeAt(0);
-    }
     Vector2? bestCandidate;
     int lowestCount = 1 << 30;
     for (int i = 0; i < 3; i++) {
