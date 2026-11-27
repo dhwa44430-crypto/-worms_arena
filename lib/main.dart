@@ -371,6 +371,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   double _boostDrainTimer = 0;
   double _magnetTimer = 0;
   double _foodBoostTimer = 0;
+  double _magnetAnimPhase = 0;
   final List<Vector2> pathHistory = [];
   List<Vector2> currentSegmentPositions = [];
 
@@ -386,6 +387,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     _boostDrainTimer = 0;
     _magnetTimer = 0;
     _foodBoostTimer = 0;
+    _magnetAnimPhase = 0;
     pathHistory.clear();
     for (int i = 0; i < 400; i++) {
       pathHistory.add(head.position.clone());
@@ -407,6 +409,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
 
     if (_magnetTimer > 0) {
       _magnetTimer = max(0.0, _magnetTimer - dt);
+      _magnetAnimPhase += dt * 7.5;
     }
     if (_foodBoostTimer > 0) {
       _foodBoostTimer = max(0.0, _foodBoostTimer - dt);
@@ -559,9 +562,78 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     return a;
   }
 
+  void _drawMagnetLines(Canvas canvas) {
+    if (_magnetTimer <= 0) return;
+
+    const magnetRadius = 230.0;
+    final hx = head.position.x;
+    final hy = head.position.y;
+    final fade = (_magnetTimer / 1.0).clamp(0.0, 1.0);
+
+    final ringPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.22 * fade)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final pulseRadius = 38.0 + ((_magnetAnimPhase * 28.0) % (magnetRadius - 38.0));
+    canvas.drawCircle(Offset(hx, hy), pulseRadius, ringPaint);
+
+    const rayCount = 12;
+    for (int i = 0; i < rayCount; i++) {
+      final baseAngle = angle + (i * (2 * pi / rayCount));
+      final progress = ((_magnetAnimPhase * 0.35) + (i * 0.17)) % 1.0;
+      final outerDist = magnetRadius - (progress * (magnetRadius - 24.0));
+      final innerDist = max(18.0, outerDist - 46.0);
+      final alpha = (sin(progress * pi) * 0.85 * fade).clamp(0.0, 1.0);
+
+      final linePaint = Paint()
+        ..color = Colors.white.withValues(alpha: alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round;
+
+      final start = Offset(
+        hx + cos(baseAngle) * outerDist,
+        hy + sin(baseAngle) * outerDist,
+      );
+      final end = Offset(
+        hx + cos(baseAngle) * innerDist,
+        hy + sin(baseAngle) * innerDist,
+      );
+      canvas.drawLine(start, end, linePaint);
+    }
+
+    for (final food in game.foodSpawner.getFoodsNear(head.position, magnetRadius)) {
+      if (food.isRemoved) continue;
+      final dx = hx - food.position.x;
+      final dy = hy - food.position.y;
+      final dist = sqrt(dx * dx + dy * dy);
+      if (dist > 14.0 && dist <= magnetRadius) {
+        final pullPhase = ((_magnetAnimPhase * 0.8) + (dist * 0.02)) % 1.0;
+        final segStart = food.position.x + dx * (pullPhase * 0.55);
+        final segStartY = food.position.y + dy * (pullPhase * 0.55);
+        final segEnd = food.position.x + dx * min(1.0, (pullPhase * 0.55) + 0.35);
+        final segEndY = food.position.y + dy * min(1.0, (pullPhase * 0.55) + 0.35);
+
+        final pullLinePaint = Paint()
+          ..color = Colors.white.withValues(alpha: 0.75 * fade)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0
+          ..strokeCap = StrokeCap.round;
+
+        canvas.drawLine(
+          Offset(segStart, segStartY),
+          Offset(segEnd, segEndY),
+          pullLinePaint,
+        );
+      }
+    }
+  }
+
   @override
   void render(Canvas canvas) {
     if (isDead) return;
+    _drawMagnetLines(canvas);
     final segmentPositions = currentSegmentPositions;
 
     for (int i = segmentPositions.length - 1; i >= 0; i--) {
