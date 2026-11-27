@@ -19,6 +19,8 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   final bool respawnOnEat;
   double _pulsePhase = 0;
   int _gridKey = 0;
+  double _lastGridX = 0;
+  double _lastGridY = 0;
   late final Paragraph _cachedParagraph;
 
   FoodItem({
@@ -30,6 +32,8 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
     this.emoji = '🍎',
     this.respawnOnEat = false,
   }) : super(position: position, anchor: Anchor.center) {
+    _lastGridX = position.x;
+    _lastGridY = position.y;
     final fontSize = radius * 1.55;
     final paragraphBuilder = ParagraphBuilder(
       ParagraphStyle(
@@ -47,20 +51,39 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
   @override
   void onMount() {
     super.onMount();
+    _lastGridX = position.x;
+    _lastGridY = position.y;
     _gridKey = game.foodSpawner.registerFoodInGrid(this);
   }
 
   @override
   void update(double dt) {
-    super.update(dt);
-    _pulsePhase += dt * 5;
-    if (isMounted) {
+    // الإبقاء على update خفيفاً للقطع القريبة فقط لتقليل استهلاك المعالج مع 36,000 قطعة
+    final dx = position.x - game.worm.head.position.x;
+    final dy = position.y - game.worm.head.position.y;
+    if (dx.abs() <= 900 && dy.abs() <= 650) {
+      _pulsePhase += dt * 5;
+    }
+
+    if (isMounted &&
+        ((position.x - _lastGridX).abs() >= 1.0 ||
+            (position.y - _lastGridY).abs() >= 1.0)) {
+      _lastGridX = position.x;
+      _lastGridY = position.y;
       _gridKey = game.foodSpawner.updateFoodInGrid(this, _gridKey);
     }
   }
 
   @override
   void render(Canvas canvas) {
+    final dx = position.x - game.worm.head.position.x;
+    final dy = position.y - game.worm.head.position.y;
+    final cullW = game.size.x * 0.75 + radius * 3;
+    final cullH = game.size.y * 0.75 + radius * 3;
+    if (dx.abs() > cullW || dy.abs() > cullH) {
+      return;
+    }
+
     final pulseScale = 1.0 + (sin(_pulsePhase) * 0.12);
     canvas.save();
     canvas.scale(pulseScale);
@@ -258,12 +281,12 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
     }
 
     _spawnCheckTimer += dt;
-    if (_spawnCheckTimer < 0.1) return;
+    if (_spawnCheckTimer < 0.05) return;
     _spawnCheckTimer = 0;
 
     final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
     if (_activeFoodCount < desiredExtra) {
-      final missing = min(150, desiredExtra - _activeFoodCount);
+      final missing = min(600, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
         spawnOneFood(respawnOnEat: true);
       }
