@@ -409,7 +409,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         effectType: effect,
         emoji: chosenEmoji,
         respawnOnEat: respawnOnEat,
-        remainingLifeSeconds: exactPosition != null ? 8.0 : null,
+        remainingLifeSeconds: null,
       ),
     );
   }
