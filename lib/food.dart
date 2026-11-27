@@ -10,30 +10,31 @@ enum FoodEffectType {
   boost,
 }
 
-class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
+class FoodItem {
+  final Vector2 position;
   final int growthValue;
   final Color color;
   final double radius;
   final FoodEffectType effectType;
   final String emoji;
   final bool respawnOnEat;
-  double _pulsePhase = 0;
-  int _gridKey = 0;
-  double _lastGridX = 0;
-  double _lastGridY = 0;
-  late final Paragraph _cachedParagraph;
+  double pulsePhase = 0;
+  int gridKey = 0;
+  double lastGridX;
+  double lastGridY;
+  bool isRemoved = false;
+  late final Paragraph cachedParagraph;
 
   FoodItem({
-    required Vector2 position,
+    required this.position,
     required this.growthValue,
     required this.color,
     required this.radius,
     this.effectType = FoodEffectType.normal,
     this.emoji = '🍎',
     this.respawnOnEat = false,
-  }) : super(position: position, anchor: Anchor.center) {
-    _lastGridX = position.x;
-    _lastGridY = position.y;
+  })  : lastGridX = position.x,
+        lastGridY = position.y {
     final fontSize = radius * 1.55;
     final paragraphBuilder = ParagraphBuilder(
       ParagraphStyle(
@@ -44,72 +45,12 @@ class FoodItem extends PositionComponent with HasGameReference<WormsArenaGame> {
       ..pushStyle(TextStyle(fontSize: fontSize))
       ..addText(emoji);
 
-    _cachedParagraph = paragraphBuilder.build()
+    cachedParagraph = paragraphBuilder.build()
       ..layout(ParagraphConstraints(width: radius * 2.4));
   }
 
-  @override
-  void onMount() {
-    super.onMount();
-    _lastGridX = position.x;
-    _lastGridY = position.y;
-    _gridKey = game.foodSpawner.registerFoodInGrid(this);
-  }
-
-  @override
-  void update(double dt) {
-    // الإبقاء على update خفيفاً للقطع القريبة فقط لتقليل استهلاك المعالج مع 36,000 قطعة
-    final dx = position.x - game.worm.head.position.x;
-    final dy = position.y - game.worm.head.position.y;
-    if (dx.abs() <= 900 && dy.abs() <= 650) {
-      _pulsePhase += dt * 5;
-    }
-
-    if (isMounted &&
-        ((position.x - _lastGridX).abs() >= 1.0 ||
-            (position.y - _lastGridY).abs() >= 1.0)) {
-      _lastGridX = position.x;
-      _lastGridY = position.y;
-      _gridKey = game.foodSpawner.updateFoodInGrid(this, _gridKey);
-    }
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final dx = position.x - game.worm.head.position.x;
-    final dy = position.y - game.worm.head.position.y;
-    final cullW = game.size.x * 0.75 + radius * 3;
-    final cullH = game.size.y * 0.75 + radius * 3;
-    if (dx.abs() > cullW || dy.abs() > cullH) {
-      return;
-    }
-
-    final pulseScale = 1.0 + (sin(_pulsePhase) * 0.12);
-    canvas.save();
-    canvas.scale(pulseScale);
-    canvas.drawParagraph(
-      _cachedParagraph,
-      Offset(-_cachedParagraph.width / 2, -_cachedParagraph.height / 2),
-    );
-    canvas.restore();
-  }
-
-  @override
-  void onRemove() {
-    if (isMounted) {
-      game.foodSpawner.unregisterFoodFromGrid(this, _gridKey);
-      if (respawnOnEat) {
-        game.foodSpawner.scheduleRespawn(
-          position: position.clone(),
-          growthValue: growthValue,
-          color: color,
-          radius: radius,
-          effectType: effectType,
-          emoji: emoji,
-        );
-      }
-    }
-    super.onRemove();
+  void removeFromParent() {
+    isRemoved = true;
   }
 }
 
@@ -140,6 +81,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   final int targetFoodCount;
   final List<_PendingRespawn> _pendingRespawns = [];
   final Map<int, List<FoodItem>> _gridBuckets = {};
+  final List<FoodItem> _allFoods = [];
   int _activeFoodCount = 0;
   double _spawnCheckTimer = 0;
 
@@ -248,6 +190,11 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
     );
   }
 
+  void _addFoodItem(FoodItem food) {
+    _allFoods.add(food);
+    food.gridKey = registerFoodInGrid(food);
+  }
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
@@ -266,7 +213,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
       item.remainingSeconds -= dt;
       if (item.remainingSeconds <= 0) {
         _pendingRespawns.removeAt(i);
-        game.world.add(
+        _addFoodItem(
           FoodItem(
             position: item.position,
             growthValue: item.growthValue,
@@ -280,6 +227,38 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
       }
     }
 
+    for (int i = _allFoods.length - 1; i >= 0; i--) {
+      final food = _allFoods[i];
+      if (food.isRemoved) {
+        unregisterFoodFromGrid(food, food.gridKey);
+        if (food.respawnOnEat) {
+          scheduleRespawn(
+            position: food.position.clone(),
+            growthValue: food.growthValue,
+            color: food.color,
+            radius: food.radius,
+            effectType: food.effectType,
+            emoji: food.emoji,
+          );
+        }
+        _allFoods.removeAt(i);
+        continue;
+      }
+
+      if ((food.position.x - food.lastGridX).abs() >= 1.0 ||
+          (food.position.y - food.lastGridY).abs() >= 1.0) {
+        food.lastGridX = food.position.x;
+        food.lastGridY = food.position.y;
+        food.gridKey = updateFoodInGrid(food, food.gridKey);
+      }
+
+      final dx = food.position.x - game.worm.head.position.x;
+      final dy = food.position.y - game.worm.head.position.y;
+      if (dx.abs() <= 900 && dy.abs() <= 650) {
+        food.pulsePhase += dt * 5;
+      }
+    }
+
     _spawnCheckTimer += dt;
     if (_spawnCheckTimer < 0.05) return;
     _spawnCheckTimer = 0;
@@ -289,6 +268,43 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
       final missing = min(600, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
         spawnOneFood(respawnOnEat: true);
+      }
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    final viewCenter = game.camera.viewfinder.position;
+    final halfW = game.size.x * 0.65;
+    final halfH = game.size.y * 0.65;
+
+    final minCx = _cellCoord(viewCenter.x - halfW);
+    final maxCx = _cellCoord(viewCenter.x + halfW);
+    final minCy = _cellCoord(viewCenter.y - halfH);
+    final maxCy = _cellCoord(viewCenter.y + halfH);
+
+    for (int cx = minCx; cx <= maxCx; cx++) {
+      for (int cy = minCy; cy <= maxCy; cy++) {
+        final list = _gridBuckets[_packCellKey(cx, cy)];
+        if (list == null) continue;
+        for (int i = 0; i < list.length; i++) {
+          final food = list[i];
+          if (food.isRemoved) continue;
+
+          final pulseScale = 1.0 + (sin(food.pulsePhase) * 0.12);
+          canvas.save();
+          canvas.translate(food.position.x, food.position.y);
+          canvas.scale(pulseScale);
+          canvas.drawParagraph(
+            food.cachedParagraph,
+            Offset(
+              -food.cachedParagraph.width / 2,
+              -food.cachedParagraph.height / 2,
+            ),
+          );
+          canvas.restore();
+        }
       }
     }
   }
@@ -352,7 +368,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
       }
     }
 
-    game.world.add(
+    _addFoodItem(
       FoodItem(
         position: pos,
         growthValue: growth,
