@@ -217,7 +217,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         _pendingRespawns.removeAt(i);
         _addFoodItem(
           FoodItem(
-            position: _randomArenaPoint(),
+            position: _emptyOrSparseArenaPoint(),
             growthValue: item.growthValue,
             color: item.color,
             radius: item.radius,
@@ -236,7 +236,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         if (food.remainingLifeSeconds! <= 0) {
           food.isRemoved = true;
           scheduleRespawn(
-            position: _randomArenaPoint(),
+            position: _emptyOrSparseArenaPoint(),
             growthValue: food.growthValue,
             color: food.color,
             radius: food.radius,
@@ -250,7 +250,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         unregisterFoodFromGrid(food, food.gridKey);
         if (food.respawnOnEat) {
           scheduleRespawn(
-            position: _randomArenaPoint(),
+            position: _emptyOrSparseArenaPoint(),
             growthValue: food.growthValue,
             color: food.color,
             radius: food.radius,
@@ -282,9 +282,12 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
     final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
     if (_activeFoodCount < desiredExtra) {
-      final missing = min(600, desiredExtra - _activeFoodCount);
+      final missing = min(2000, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
-        spawnOneFood(respawnOnEat: true);
+        spawnOneFood(
+          exactPosition: _emptyOrSparseArenaPoint(),
+          respawnOnEat: true,
+        );
       }
     }
   }
@@ -397,6 +400,23 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         remainingLifeSeconds: exactPosition != null ? 8.0 : null,
       ),
     );
+  }
+
+  Vector2 _emptyOrSparseArenaPoint() {
+    Vector2? bestCandidate;
+    int lowestCount = 1 << 30;
+    for (int i = 0; i < 6; i++) {
+      final candidate = _randomArenaPoint();
+      final count = _gridBuckets[_keyForPosition(candidate)]?.length ?? 0;
+      if (count == 0) {
+        return candidate;
+      }
+      if (count < lowestCount) {
+        lowestCount = count;
+        bestCandidate = candidate;
+      }
+    }
+    return bestCandidate ?? _randomArenaPoint();
   }
 
   Vector2 _randomArenaPoint() {
