@@ -18,6 +18,7 @@ class FoodItem {
   final FoodEffectType effectType;
   final String emoji;
   final bool respawnOnEat;
+  double? remainingLifeSeconds;
   double pulsePhase = 0;
   int gridKey = 0;
   double lastGridX;
@@ -33,6 +34,7 @@ class FoodItem {
     this.effectType = FoodEffectType.normal,
     this.emoji = '🍎',
     this.respawnOnEat = false,
+    this.remainingLifeSeconds,
   })  : lastGridX = position.x,
         lastGridY = position.y {
     final fontSize = radius * 1.55;
@@ -215,7 +217,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         _pendingRespawns.removeAt(i);
         _addFoodItem(
           FoodItem(
-            position: item.position,
+            position: _randomArenaPoint(),
             growthValue: item.growthValue,
             color: item.color,
             radius: item.radius,
@@ -229,11 +231,26 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
     for (int i = _allFoods.length - 1; i >= 0; i--) {
       final food = _allFoods[i];
+      if (!food.isRemoved && food.remainingLifeSeconds != null) {
+        food.remainingLifeSeconds = food.remainingLifeSeconds! - dt;
+        if (food.remainingLifeSeconds! <= 0) {
+          food.isRemoved = true;
+          scheduleRespawn(
+            position: _randomArenaPoint(),
+            growthValue: food.growthValue,
+            color: food.color,
+            radius: food.radius,
+            effectType: food.effectType,
+            emoji: food.emoji,
+          );
+        }
+      }
+
       if (food.isRemoved) {
         unregisterFoodFromGrid(food, food.gridKey);
         if (food.respawnOnEat) {
           scheduleRespawn(
-            position: food.position.clone(),
+            position: _randomArenaPoint(),
             growthValue: food.growthValue,
             color: food.color,
             radius: food.radius,
@@ -377,6 +394,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         effectType: effect,
         emoji: chosenEmoji,
         respawnOnEat: respawnOnEat,
+        remainingLifeSeconds: exactPosition != null ? 8.0 : null,
       ),
     );
   }
