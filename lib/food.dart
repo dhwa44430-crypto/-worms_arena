@@ -274,7 +274,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
     final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
     if (_activeFoodCount < desiredExtra) {
-      final missing = min(400, desiredExtra - _activeFoodCount);
+      final missing = min(150, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
         spawnOneFood(
           exactPosition: _emptyOrSparseArenaPoint(),
@@ -397,7 +397,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   Vector2 _emptyOrSparseArenaPoint() {
     Vector2? bestCandidate;
     int lowestCount = 1 << 30;
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
       final candidate = _randomArenaPoint();
       final count = _gridBuckets[_keyForPosition(candidate)]?.length ?? 0;
       if (count == 0) {
