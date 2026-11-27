@@ -294,7 +294,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
     final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
     if (_activeFoodCount < desiredExtra) {
-      final missing = min(200, desiredExtra - _activeFoodCount);
+      final missing = min(150, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
         spawnOneFood(
           exactPosition: _emptyOrSparseArenaPoint(),
