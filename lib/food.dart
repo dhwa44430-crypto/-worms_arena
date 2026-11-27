@@ -11,6 +11,8 @@ enum FoodEffectType {
 }
 
 class FoodItem {
+  static final Map<int, Paragraph> _paragraphCache = {};
+
   final Vector2 position;
   final int growthValue;
   final Color color;
@@ -38,17 +40,20 @@ class FoodItem {
   })  : lastGridX = position.x,
         lastGridY = position.y {
     final fontSize = radius * 1.55;
-    final paragraphBuilder = ParagraphBuilder(
-      ParagraphStyle(
-        textAlign: TextAlign.center,
-        fontSize: fontSize,
-      ),
-    )
-      ..pushStyle(TextStyle(fontSize: fontSize))
-      ..addText(emoji);
+    final cacheKey = Object.hash(emoji, fontSize);
+    cachedParagraph = _paragraphCache.putIfAbsent(cacheKey, () {
+      final paragraphBuilder = ParagraphBuilder(
+        ParagraphStyle(
+          textAlign: TextAlign.center,
+          fontSize: fontSize,
+        ),
+      )
+        ..pushStyle(TextStyle(fontSize: fontSize))
+        ..addText(emoji);
 
-    cachedParagraph = paragraphBuilder.build()
-      ..layout(ParagraphConstraints(width: radius * 2.4));
+      return paragraphBuilder.build()
+        ..layout(ParagraphConstraints(width: radius * 2.4));
+    });
   }
 
   void removeFromParent() {
@@ -269,12 +274,12 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
     }
 
     _spawnCheckTimer += dt;
-    if (_spawnCheckTimer < 0.05) return;
+    if (_spawnCheckTimer < 0.08) return;
     _spawnCheckTimer = 0;
 
     final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
     if (_activeFoodCount < desiredExtra) {
-      final missing = min(150, desiredExtra - _activeFoodCount);
+      final missing = min(30, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
         spawnOneFood(
           exactPosition: _emptyOrSparseArenaPoint(),
