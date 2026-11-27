@@ -74,46 +74,6 @@ class _WormsArenaScreenState extends State<WormsArenaScreen> {
             ),
           ),
 
-          // زر السرعة (Boost) أسفل اليمين
-          Positioned(
-            right: 20,
-            bottom: 28,
-            child: GestureDetector(
-              onTapDown: (_) => _game.setBoosting(true),
-              onTapUp: (_) => _game.setBoosting(false),
-              onTapCancel: () => _game.setBoosting(false),
-              child: Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFFF006E).withValues(alpha: 0.9),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFF006E).withValues(alpha: 0.45),
-                      blurRadius: 14,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.bolt, color: Colors.white, size: 28),
-                    Text(
-                      'سرعة',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
           // نافذة الخسارة وإعادة اللعب
           ValueListenableBuilder<bool>(
             valueListenable: _game.gameOverNotifier,
