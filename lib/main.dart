@@ -200,7 +200,7 @@ class _StatBadge extends StatelessWidget {
 }
 
 class WormsArenaGame extends FlameGame with PanDetector {
-  static const double arenaRadius = 8400;
+  static const double arenaRadius = 7000;
   static const double zoneEdgeInset = 90;
   static const double normalSpeed = 195;
   static const double boostSpeed = 320;
