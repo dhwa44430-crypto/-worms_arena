@@ -235,14 +235,6 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
         food.remainingLifeSeconds = food.remainingLifeSeconds! - dt;
         if (food.remainingLifeSeconds! <= 0) {
           food.isRemoved = true;
-          scheduleRespawn(
-            position: _emptyOrSparseArenaPoint(),
-            growthValue: food.growthValue,
-            color: food.color,
-            radius: food.radius,
-            effectType: food.effectType,
-            emoji: food.emoji,
-          );
         }
       }
 
@@ -282,7 +274,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
     final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
     if (_activeFoodCount < desiredExtra) {
-      final missing = min(2000, desiredExtra - _activeFoodCount);
+      final missing = min(800, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
         spawnOneFood(
           exactPosition: _emptyOrSparseArenaPoint(),
@@ -405,7 +397,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
   Vector2 _emptyOrSparseArenaPoint() {
     Vector2? bestCandidate;
     int lowestCount = 1 << 30;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 2; i++) {
       final candidate = _randomArenaPoint();
       final count = _gridBuckets[_keyForPosition(candidate)]?.length ?? 0;
       if (count == 0) {
