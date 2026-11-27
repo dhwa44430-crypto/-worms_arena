@@ -197,6 +197,20 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
     );
   }
 
+  void spawnFoodAroundWorm(Vector2 center, {int count = 100, double maxRadius = 700.0}) {
+    final limit = WormsArenaGame.arenaRadius - WormsArenaGame.zoneEdgeInset - 60;
+    for (int i = 0; i < count; i++) {
+      final r = _random.nextDouble() * maxRadius;
+      final theta = _random.nextDouble() * 2 * pi;
+      final x = (center.x + cos(theta) * r).clamp(-limit, limit);
+      final y = (center.y + sin(theta) * r).clamp(-limit, limit);
+      spawnOneFood(
+        exactPosition: Vector2(x, y),
+        respawnOnEat: true,
+      );
+    }
+  }
+
   void _addFoodItem(FoodItem food) {
     _allFoods.add(food);
     food.gridKey = registerFoodInGrid(food);
@@ -209,6 +223,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
     for (int i = 0; i < initialBatch; i++) {
       spawnOneFood(respawnOnEat: true);
     }
+    spawnFoodAroundWorm(game.worm.head.position);
   }
 
   @override
@@ -279,7 +294,7 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
 
     final desiredExtra = max(0, targetFoodCount - _pendingRespawns.length);
     if (_activeFoodCount < desiredExtra) {
-      final missing = min(30, desiredExtra - _activeFoodCount);
+      final missing = min(70, desiredExtra - _activeFoodCount);
       for (int i = 0; i < missing; i++) {
         spawnOneFood(
           exactPosition: _emptyOrSparseArenaPoint(),
