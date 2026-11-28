@@ -64,6 +64,7 @@ jobs:
             echo "No APK changes to commit"
           else
             git commit -m "chore: build worms-arena.apk automatically"
+            git pull --rebase origin main
             git push
           fi
 
