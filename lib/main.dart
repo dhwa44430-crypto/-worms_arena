@@ -508,8 +508,8 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
           _foodBoostTimer = 10.0;
         }
         food.removeFromParent();
-        segmentCount += food.growthValue;
-        score += food.growthValue * 10;
+        segmentCount = (segmentCount + food.growthValue).toInt();
+        score = (score + food.growthValue * 10).toInt();
         game.scoreNotifier.value = score;
         game.lengthNotifier.value = segmentCount;
       } else {
@@ -594,8 +594,8 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
           _foodBoostTimer = 10.0;
         }
         food.removeFromParent();
-        segmentCount += food.growthValue;
-        score += food.growthValue * 10;
+        segmentCount = (segmentCount + food.growthValue).toInt();
+        score = (score + food.growthValue * 10).toInt();
 
         game.scoreNotifier.value = score;
         game.lengthNotifier.value = segmentCount;
