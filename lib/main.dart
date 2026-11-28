@@ -371,7 +371,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   double _boostDrainTimer = 0;
   double _magnetTimer = 0;
   double _foodBoostTimer = 0;
-  double _magnetAnimPhase = 0;
+  double _magnetWaveTime = 0;
   final List<Vector2> pathHistory = [];
   List<Vector2> currentSegmentPositions = [];
 
@@ -387,7 +387,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     _boostDrainTimer = 0;
     _magnetTimer = 0;
     _foodBoostTimer = 0;
-    _magnetAnimPhase = 0;
+    _magnetWaveTime = 0;
     pathHistory.clear();
     for (int i = 0; i < 400; i++) {
       pathHistory.add(head.position.clone());
@@ -409,7 +409,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
 
     if (_magnetTimer > 0) {
       _magnetTimer = max(0.0, _magnetTimer - dt);
-      _magnetAnimPhase += dt * 7.5;
+      _magnetWaveTime += dt;
     }
     if (_foodBoostTimer > 0) {
       _foodBoostTimer = max(0.0, _foodBoostTimer - dt);
@@ -566,6 +566,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     if (_magnetTimer <= 0) return;
 
     const waveCount = 3;
+    const waveCycleSeconds = 1.45; // سرعة ثابتة ومبطّأة للموجات
     const minRadius = 24.0;
     const maxRadius = 155.0;
     const spreadAngle = 0.72; // موجة أمامية فقط حول اتجاه الرأس
@@ -574,7 +575,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     final fade = (_magnetTimer / 0.8).clamp(0.0, 1.0);
 
     for (int w = 0; w < waveCount; w++) {
-      final progress = ((_magnetAnimPhase * 0.28) + (w / waveCount)) % 1.0;
+      final progress = (((_magnetWaveTime / waveCycleSeconds) + (w / waveCount)) % 1.0);
       final radius = minRadius + progress * (maxRadius - minRadius);
       final envelope = sin(progress * pi);
       final alpha = (envelope * 0.82 * fade).clamp(0.0, 1.0);
