@@ -474,6 +474,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     const magnetRadius = 230.0;
     const magnetRadiusSq = magnetRadius * magnetRadius;
     const pullSpeed = 350.0;
+    const frontSpreadAngle = 0.72;
     final hx = head.position.x;
     final hy = head.position.y;
 
@@ -483,6 +484,10 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       final dy = hy - food.position.y;
       final distSq = dx * dx + dy * dy;
       if (distSq > 0 && distSq <= magnetRadiusSq) {
+        final angleToFood = atan2(-dy, -dx);
+        final angleDiff = _normalizeAngle(angleToFood - angle).abs();
+        if (angleDiff > frontSpreadAngle) continue;
+
         final dist = sqrt(distSq);
         final step = min(dist, pullSpeed * dt);
         food.position.x += (dx / dist) * step;
@@ -540,7 +545,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
         if (food.effectType == FoodEffectType.magnet) {
           _magnetTimer = 10.0;
         } else if (food.effectType == FoodEffectType.boost) {
-          _foodBoostTimer = 4.0;
+          _foodBoostTimer = 10.0;
         }
         food.removeFromParent();
         segmentCount += food.growthValue;
