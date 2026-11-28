@@ -372,6 +372,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   double _magnetTimer = 0;
   double _foodBoostTimer = 0;
   double _magnetWaveTime = 0;
+  final Set<dynamic> _lockedMagnetFoods = {};
   final List<Vector2> pathHistory = [];
   List<Vector2> currentSegmentPositions = [];
 
@@ -388,6 +389,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     _magnetTimer = 0;
     _foodBoostTimer = 0;
     _magnetWaveTime = 0;
+    _lockedMagnetFoods.clear();
     pathHistory.clear();
     for (int i = 0; i < 400; i++) {
       pathHistory.add(head.position.clone());
@@ -410,6 +412,8 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
     if (_magnetTimer > 0) {
       _magnetTimer = max(0.0, _magnetTimer - dt);
       _magnetWaveTime += dt;
+    } else {
+      _lockedMagnetFoods.clear();
     }
     if (_foodBoostTimer > 0) {
       _foodBoostTimer = max(0.0, _foodBoostTimer - dt);
@@ -483,20 +487,50 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
         ? atan2(desiredDir.y, desiredDir.x)
         : angle;
 
+    _lockedMagnetFoods.removeWhere((f) => f.isRemoved);
+
+    for (final food in List.of(_lockedMagnetFoods)) {
+      if (food.isRemoved) {
+        _lockedMagnetFoods.remove(food);
+        continue;
+      }
+      final dx = hx - food.position.x;
+      final dy = hy - food.position.y;
+      final dist = sqrt(dx * dx + dy * dy);
+      if (dist <= 0) continue;
+
+      final reach = eatRadius + food.radius;
+      if (dist <= reach) {
+        _lockedMagnetFoods.remove(food);
+        if (food.effectType == FoodEffectType.magnet) {
+          _magnetTimer = 10.0;
+        } else if (food.effectType == FoodEffectType.boost) {
+          _foodBoostTimer = 10.0;
+        }
+        food.removeFromParent();
+        segmentCount += food.growthValue;
+        score += food.growthValue * 10;
+        game.scoreNotifier.value = score;
+        game.lengthNotifier.value = segmentCount;
+      } else {
+        final step = min(dist, pullSpeed * dt);
+        food.position.x += (dx / dist) * step;
+        food.position.y += (dy / dist) * step;
+      }
+    }
+
     for (final food in game.foodSpawner.getFoodsNear(head.position, magnetRadius)) {
-      if (food.isRemoved) continue;
+      if (food.isRemoved || _lockedMagnetFoods.contains(food)) continue;
       final toFoodX = food.position.x - hx;
       final toFoodY = food.position.y - hy;
       final distSq = toFoodX * toFoodX + toFoodY * toFoodY;
       if (distSq > 0 && distSq <= magnetRadiusSq) {
-        final dist = sqrt(distSq);
-        final reach = eatRadius + food.radius;
-        if (dist > reach) {
-          final angleToFood = atan2(toFoodY, toFoodX);
-          final angleDiff = _normalizeAngle(angleToFood - aimAngle).abs();
-          if (angleDiff > frontSpreadAngle) continue;
-        }
+        final angleToFood = atan2(toFoodY, toFoodX);
+        final angleDiff = _normalizeAngle(angleToFood - aimAngle).abs();
+        if (angleDiff > frontSpreadAngle) continue;
 
+        _lockedMagnetFoods.add(food);
+        final dist = sqrt(distSq);
         final step = min(dist, pullSpeed * dt);
         final dx = hx - food.position.x;
         final dy = hy - food.position.y;
@@ -529,6 +563,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
   void _die() {
     isDead = true;
     game.isBoosting = false;
+    _lockedMagnetFoods.clear();
     for (int i = 0; i < currentSegmentPositions.length; i += 2) {
       game.foodSpawner.spawnOneFood(
         exactPosition: currentSegmentPositions[i],
@@ -552,6 +587,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       final dx = hx - food.position.x;
       final dy = hy - food.position.y;
       if (dx * dx + dy * dy <= reach * reach) {
+        _lockedMagnetFoods.remove(food);
         if (food.effectType == FoodEffectType.magnet) {
           _magnetTimer = 10.0;
         } else if (food.effectType == FoodEffectType.boost) {
