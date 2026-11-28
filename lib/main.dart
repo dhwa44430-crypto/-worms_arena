@@ -538,7 +538,7 @@ class WormPlayer extends Component with HasGameReference<WormsArenaGame> {
       final dy = hy - food.position.y;
       if (dx * dx + dy * dy <= reach * reach) {
         if (food.effectType == FoodEffectType.magnet) {
-          _magnetTimer = 6.0;
+          _magnetTimer = 10.0;
         } else if (food.effectType == FoodEffectType.boost) {
           _foodBoostTimer = 4.0;
         }
