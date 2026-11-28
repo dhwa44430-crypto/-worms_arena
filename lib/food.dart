@@ -374,11 +374,11 @@ class FoodSpawner extends Component with HasGameReference<WormsArenaGame> {
       chosenEmoji = _foodEmojis[_random.nextInt(_foodEmojis.length)];
     } else if (customEffect == null) {
       final roll = _random.nextDouble();
-      if (roll < 0.015) {
+      if (roll < 0.004) {
         effect = FoodEffectType.magnet;
         chosenColor = const Color(0xFF00BBF9);
         chosenEmoji = '🧲';
-      } else if (roll < 0.03) {
+      } else if (roll < 0.012) {
         effect = FoodEffectType.boost;
         chosenColor = const Color(0xFFFF006E);
         chosenEmoji = '⚡';
